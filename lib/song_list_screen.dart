@@ -66,7 +66,7 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
   AnimationController _controller;
   Animation<Alignment> _animation;
 
-
+  AnimationController _searchHeightController;
   String _searchText;
   int selectedSong;
   bool isPlaying = false;
@@ -89,6 +89,13 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
       });
     });
 
+    _searchHeightController = AnimationController(
+      vsync: this,
+      lowerBound: 0,
+      upperBound: 0.5,
+      duration: Duration(milliseconds: 200),
+    );
+    _searchHeightController.reverse();
     currentPage.listen((int page) {
       _runAnimation(
         _dragAlignment,
@@ -98,6 +105,7 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
     _recent = _recentSongs;
     _mostPlayedSongs = _mostPlayed;
     _fav = _favSongs;
+    initNotificationListener();
     initPlayer();
   }
 
@@ -117,15 +125,17 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
   
   
   void initNotificationListener(){
-    var songsList = ScopedModel.of<SongModel>(context).getSongsList;
-    int currentIndex = ScopedModel.of<SongModel>(context).getIndex;
-    bool isPlaying = ScopedModel.of<SongModel>(context).isPlayingSong;
 
     MediaNotification.setListener('next',(){
+
+      var songsList = ScopedModel.of<SongModel>(context).getSongsList;
+      int currentIndex = ScopedModel.of<SongModel>(context).getIndex;
+      bool isPlaying = ScopedModel.of<SongModel>(context).isPlayingSong;
       setState(() {
         int selectedSong = currentIndex + 1;
         bool isPlaying = ScopedModel.of<SongModel>(context).isPlayingSong;
         if(selectedSong != songsList.length -1 ){
+          _audioPlayer.stop();
           _audioPlayer.play(songsList[selectedSong].uri);
           ScopedModel.of<SongModel>(context).updateSong(songsList[selectedSong], selectedSong, songsList, isPlaying);
         }
@@ -133,9 +143,13 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
     });
     
     MediaNotification.setListener('prev', (){
+      var songsList = ScopedModel.of<SongModel>(context).getSongsList;
+      int currentIndex = ScopedModel.of<SongModel>(context).getIndex;
+      bool isPlaying = ScopedModel.of<SongModel>(context).isPlayingSong;
       setState(() {
         int selectedSong = currentIndex - 1;
         if(selectedSong != -1 ){
+          _audioPlayer.stop();
           _audioPlayer.play(songsList[selectedSong].uri);
           ScopedModel.of<SongModel>(context).updateSong(songsList[selectedSong], selectedSong, songsList, isPlaying);
         }
@@ -143,6 +157,10 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
     });
 
     MediaNotification.setListener('play', (){
+
+      var songsList = ScopedModel.of<SongModel>(context).getSongsList;
+      int currentIndex = ScopedModel.of<SongModel>(context).getIndex;
+      bool isPlaying = ScopedModel.of<SongModel>(context).isPlayingSong;
       setState(() {
         _audioPlayer.play(songsList[currentIndex].uri);
         isPlaying = true;
@@ -151,6 +169,9 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
     });
 
     MediaNotification.setListener('pause', (){
+
+      var songsList = ScopedModel.of<SongModel>(context).getSongsList;
+      bool isPlaying = ScopedModel.of<SongModel>(context).isPlayingSong;
       setState(() {
         _audioPlayer.pause();
         isPlaying = false;
@@ -261,28 +282,31 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
                                         fontFamily: kQuicksand,
                                       ),
                                     ),
-                                    onTap: (){
-                                      //_searchHeightController.animateTo(0.8);
-                                    },
-                                    onSubmitted: (String value){
-                                      setState(() {
-                                        //_searchHeightController.animateTo(0.0);
-                                      });
+//                                    onTap: (){
+//                                      _searchHeightController.animateTo(1);
+//                                    },
+                                    onSubmitted: (value){
+                                      if(value.trim() == ""){
+                                        searchResults = [];
+                                        _searchHeightController.reverse();
+                                      }
                                     },
                                     onChanged: (String value){
-//                                      if(value.trim() == ""){
-//                                        searchResults = [];
-//                                      }else{
-//                                        setState(() {
-//                                          searchResults = widget.songs
-//                                              .where((song){
-//                                            return
-//                                              song.title.toLowerCase().contains(value.toLowerCase()) ||
-//                                                  song.artist.toLowerCase().contains(value.toLowerCase()) ||
-//                                                  song.album.toLowerCase().contains(value.toLowerCase());
-//                                          }).toList();
-//                                        });
-//                                      }
+                                      if(value.trim() == ""){
+                                        searchResults = [];
+                                      }else{
+                                        if(_searchHeightController.status != AnimationStatus.completed)
+                                          _searchHeightController.forward();
+                                        setState(() {
+                                          searchResults = widget.songs
+                                              .where((song){
+                                            return
+                                              song.title.toLowerCase().contains(value.toLowerCase()) ||
+                                                  song.artist.toLowerCase().contains(value.toLowerCase()) ||
+                                                  song.album.toLowerCase().contains(value.toLowerCase());
+                                          }).toList();
+                                        });
+                                      }
                                     },
                                   ),
                                 ),
@@ -579,68 +603,97 @@ class SongsListScreenState extends State<SongsListScreen> with TickerProviderSta
                 );
               },
             ),
-//            Positioned(
-//              top: 80,
-//              bottom: (ScopedModel.of<SongModel>(context).isPlayingSong??false)?100:0,
-//              child:Container(
-//                width: MediaQuery.of(context).size.width,
-//                height:(MediaQuery.of(context).size.height * _searchHeightController.value),
-//                decoration: BoxDecoration(
-//                  color: Colors.black.withOpacity(0.8),
-//                ),
-//                child: ListView.builder(
-//                  itemCount: searchResults.length,
-//                  itemBuilder: (BuildContext context,int index){
-//                    return ListTile(
-//                      contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 10),
-//                      isThreeLine: true,
-//                      leading: CircleAvatar(
-//                        radius: 20,
-//                        child: !(_songs[index].albumArt == null)?ClipRRect(
-//                          borderRadius: BorderRadius.circular(20),
-//                          child: Image(
-//                            height: 40,
-//                            width: 40,
-//                            fit: BoxFit.fill,
-//                            image: FileImage(
-//                              File(_songs[index].albumArt),
-//                            ),
-//                          ),
-//                        ):Icon(Icons.music_note,color: Colors.white,),
-//                      ),
-//                      title: Text(
-//                        "${_songs[index].title}",
-//                        maxLines: 1,
-//                        style: TextStyle(
-//                            fontSize: 18,
-//                            color: Colors.white,
-//                            fontFamily: kQuicksand,
-//                            fontWeight: FontWeight.bold
-//                        ),
-//                      ),
-//                      subtitle: Text(
-//                        "${_songs[index].artist}",
-//                        style: TextStyle(
-//                          fontSize: 14,
-//                          color: Colors.white,
-//                        ),
-//                      ),
-//                      onTap: ()async {
-//                        selectedSong = index;
-//                        Navigator.push(context, MaterialPageRoute(builder: (context) => NowPlaying(audioPlayer: _audioPlayer, songs: _songs, index: index,alreadyPlaying: false,)));
-//                        //if(_songs[selectedSong].albumArt == null)
-//                        //hasAlbumArt = false;
-//
-//                        setState(() {
-//                          isPlaying = true;
-//                        });
-//                      },
-//
-//                    );
-//                  },
-//                ),
-//              ),
-//            ),
+            Positioned(
+              top: 70,
+              child:Container(
+                width: MediaQuery.of(context).size.width,
+                height:(MediaQuery.of(context).size.height * _searchHeightController.value),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.8),
+                ),
+                child: Column(
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        IconButton(
+                          icon: Icon(MaterialCommunityIcons.arrow_left,color: Colors.white,),
+                          onPressed: (){
+                            setState(() {
+                              _searchHeightController.reverse();
+                            });
+                          },
+                        ),
+                        Text(
+                          'Search song, artist or album',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontFamily: kQuicksand,
+                          ),
+                        )
+                      ],
+                    ),
+                    Container(
+                      width: MediaQuery.of(context).size.width,
+                      height:((MediaQuery.of(context).size.height - 200) * _searchHeightController.value),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: searchResults.length,
+                        itemBuilder: (BuildContext context,int index){
+                          return ListTile(
+                            contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 10),
+                            isThreeLine: true,
+                            leading: CircleAvatar(
+                              radius: 20,
+                              child: !(searchResults[index].albumArt == null)?ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image(
+                                  height: 40,
+                                  width: 40,
+                                  fit: BoxFit.fill,
+                                  image: FileImage(
+                                    File(searchResults[index].albumArt),
+                                  ),
+                                ),
+                              ):Icon(Icons.music_note,color: Colors.white,),
+                            ),
+                            title: Text(
+                              "${searchResults[index].title}",
+                              maxLines: 1,
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                  fontFamily: kQuicksand,
+                                  fontWeight: FontWeight.bold
+                              ),
+                            ),
+                            subtitle: Text(
+                              "${searchResults[index].artist}",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                            onTap: ()async {
+                              int selIndex = 0;
+                              for(int i =0; i< _songs.length;i++){
+                                if(_songs[i].id == searchResults[index].id){
+                                  selIndex = i;
+                                }
+                              }
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => NowPlaying(audioPlayer: _audioPlayer, songs: _songs, index: selIndex,alreadyPlaying: false,)));
+                              setState(() {
+                                isPlaying = true;
+                              });
+                            },
+
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

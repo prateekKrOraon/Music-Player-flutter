@@ -458,7 +458,9 @@ class SlidingScaffoldState extends State<SlidingScaffold> with TickerProviderSta
                                               ),
                                               child: Center(
                                                 child: Icon(
-                                                  paused?MaterialCommunityIcons.play:MaterialCommunityIcons.pause,
+                                                  ScopedModel.of<SongModel>(context).isPlayingSong?
+                                                  MaterialCommunityIcons.pause:
+                                                  MaterialCommunityIcons.play,
                                                   color: Theme.of(context).accentColor,
                                                   size: size.width/10,
                                                 ),
